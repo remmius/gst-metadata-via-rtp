@@ -20,8 +20,8 @@
  * Boston, MA 02111-1307, USA.
  */
  
-#ifndef __GST_META2RTP_H__
-#define __GST_META2RTP_H__
+#ifndef __GST_METAHANDLE_H__
+#define __GST_METAHANDLE_H__
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
@@ -32,48 +32,40 @@
 
 G_BEGIN_DECLS
 
-
-#define GST_TYPE_META2RTP \
-  (gst_meta2rtp_get_type())
-
-//G_DECLARE_FINAL_TYPE (Gstmeta2rtp, gst_meta2rtp,GST, PLUGIN_TEMPLATE, GstBaseTransform)
-    
 /* #defines don't like whitespacey bits */
-#define GST_META2RTP(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_META2RTP,Gstmeta2rtp))
-  
-#define GST_META2RTP_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_META2RTP,Gstmeta2rtpClass))
-  
-#define GST_IS_META2RTP(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_META2RTP))
-  
-#define GST_IS_META2RTP_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_META2RTP))
+#define GST_TYPE_METAHANDLE \
+  (gst_metahandle_get_type())
+#define GST_METAHANDLE(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_METAHANDLE,Gstmetahandle))
+#define GST_METAHANDLE_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_METAHANDLE,GstmetahandleClass))
+#define GST_IS_METAHANDLE(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_METAHANDLE))
+#define GST_IS_METAHANDLE_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_METAHANDLE))
 
-typedef struct _Gstmeta2rtp Gstmeta2rtp;
-typedef struct _Gstmeta2rtpClass Gstmeta2rtpClass;
+typedef struct _Gstmetahandle      Gstmetahandle;
+typedef struct _GstmetahandleClass GstmetahandleClass;
 
+struct _Gstmetahandle
+{
+  GstElement element;
 
-struct _Gstmeta2rtp {
-  GstBaseTransform element;
-  
   GstPad *sinkpad, *srcpad;
 
   gboolean silent;
-  gboolean meta2rtp;
-  
-  guint cur_frame;
+  gboolean storedata;
+  gboolean reader;
   
 };
 
-struct _Gstmeta2rtpClass 
+struct _GstmetahandleClass 
 {
   GstElementClass parent_class;
 };
 
-GType gst_meta2rtp_get_type (void);
+GType gst_drawbox_get_type (void);
 
 G_END_DECLS
 
-#endif /* __GST_META2RTP_H__ */
+#endif /* __GST_METAHANDLE_H__ */

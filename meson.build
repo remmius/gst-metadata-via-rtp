@@ -10,6 +10,12 @@ api_version = '1.0'
 
 gst_dep = dependency('gstreamer-1.0',
     fallback : ['gstreamer', 'gst_dep'])
+    
+gst_rtp_dep = dependency('gstreamer-rtp-1.0')
+
+gst_video_dep = dependency('gstreamer-video-1.0')
+
+#gst_base_dep = dependency('gstreamer-base-1.0',fallback : ['gstreamer', 'gst_base_dep'])
 
 subdir('gst-app')
 subdir('gst-plugin')
