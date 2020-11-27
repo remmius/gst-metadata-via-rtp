@@ -20,8 +20,8 @@
  */
  
 //works
-//GST_PLUGIN_PATH=~/gstreamer/gst-metadata-via-rtp/builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle reader=false ! x264enc ! rtph264pay ! meta2rtp meta2rtp=true ! udpsink host=127.0.0.1 port=5555 
-//GST_PLUGIN_PATH=~/gstreamer/gst-metadata-via-rtp/builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp meta2rtp=false ! rtph264depay  ! avdec_h264 ! metahandle  ! videoconvert  ! autovideosink
+//GST_PLUGIN_PATH=~/gstreamer/gst-metadata-via-rtp/builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle reader=false ! videoconvert  ! x264enc ! rtph264pay ! meta2rtp meta2rtp=true ! udpsink host=127.0.0.1 port=5555
+//GST_PLUGIN_PATH=~/gstreamer/gst-metadata-via-rtp/builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp meta2rtp=false ! rtph264depay  ! avdec_h264 ! videoconvert  ! metahandle  ! videoconvert  ! autovideosink
 
 //GST_PLUGIN_PATH=~/gstreamer/gst-metadata-via-rtp/builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle reader=false ! x264enc ! rtph264pay !  meta2rtp meta2rtp=true ! udpsink host=127.0.0.1 port=5555 sync=false async=false udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" ! meta2rtp meta2rtp=false ! rtph264depay  ! avdec_h264 ! metahandle  ! videoconvert  ! autovideosink
 
@@ -74,7 +74,7 @@ GST_STATIC_PAD_TEMPLATE (
   "sink",
   GST_PAD_SINK,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS ("ANY")
+  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("RGBx"))
 );
 
 static GstStaticPadTemplate src_template =
@@ -82,12 +82,13 @@ GST_STATIC_PAD_TEMPLATE (
   "src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS ("ANY")
+  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("RGBx"))
 );
 
 #define gst_metahandle_parent_class parent_class
-//G_DEFINE_TYPE (Gstmetahandle, gst_metahandle, GST_TYPE_BASE_TRANSFORM);
-G_DEFINE_TYPE (Gstmetahandle, gst_metahandle, GST_TYPE_OPENCV_VIDEO_FILTER);
+//G_DEFINE_TYPE (Gstmetahandle, gst_metahandle, GST_TYPE_BASE_TRANSFORM);//doe snot work
+G_DEFINE_TYPE (Gstmetahandle, gst_metahandle, GST_TYPE_ELEMENT);
+//G_DEFINE_TYPE (Gstmetahandle, gst_metahandle, GST_TYPE_OPENCV_VIDEO_FILTER);
 
 static void gst_metahandle_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
@@ -96,7 +97,7 @@ static void gst_metahandle_get_property (GObject * object, guint prop_id,
 
 static gboolean gst_metahandle_sink_event (GstPad * pad, GstObject * parent, GstEvent * event);
 static GstFlowReturn gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf);
-static GstFlowReturn gst_metahandle_transform_ip (GstOpencvVideoFilter * filter, GstBuffer * buf, cv::Mat img);
+//static GstFlowReturn gst_metahandle_transform_ip (GstOpencvVideoFilter * filter, GstBuffer * buf, cv::Mat img);
 //static GstFlowReturn gst_metahandle_transform_ip (GstBaseTransform * base,GstBuffer * outbuf);
 
 /* GObject vmethod implementations */
@@ -107,22 +108,22 @@ gst_metahandle_class_init (GstmetahandleClass * klass)
 {
   GObjectClass *gobject_class;
   GstElementClass *gstelement_class;
-  GstOpencvVideoFilterClass *gstopencvbasefilter_class;
+  //GstOpencvVideoFilterClass *gstopencvbasefilter_class;
 
   gobject_class = (GObjectClass *) klass;
   gstelement_class = (GstElementClass *) klass;
-  gstopencvbasefilter_class = (GstOpencvVideoFilterClass *) klass;
-
-  gstopencvbasefilter_class->cv_trans_ip_func = gst_metahandle_transform_ip;
+  //gstopencvbasefilter_class = (GstOpencvVideoFilterClass *) klass;
+  //gstopencvbasefilter_class->cv_trans_ip_func = gst_metahandle_transform_ip;
+  
   gobject_class->set_property = gst_metahandle_set_property;
   gobject_class->get_property = gst_metahandle_get_property;
 
   g_object_class_install_property (gobject_class, PROP_SILENT,
     g_param_spec_boolean ("silent", "Silent", "Produce verbose output ?",
-          FALSE, G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE));
+          FALSE,(GParamFlags) (G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE)));
   g_object_class_install_property (gobject_class, PROP_READER,
     g_param_spec_boolean ("reader", "Reader", "True: Reader-mode; False: Writer mode",
-          FALSE, G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE));
+          FALSE,(GParamFlags) (G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE)));
 
   gst_element_class_set_details_simple (gstelement_class,
     "metahandle",
@@ -140,7 +141,7 @@ gst_metahandle_class_init (GstmetahandleClass * klass)
   /* debug category for fltering log messages
    *
    * FIXME:exchange the string 'Template metahandle' with your description
-   */
+   */ 
   GST_DEBUG_CATEGORY_INIT (gst_metahandle_debug, "metahandle", 0, "Template metahandle");
 }
 
@@ -156,8 +157,7 @@ gst_metahandle_init (Gstmetahandle *filter)
   filter->sinkpad = gst_pad_new_from_static_template (&sink_template, "sink");
   gst_pad_set_event_function (filter->sinkpad,
                               GST_DEBUG_FUNCPTR(gst_metahandle_sink_event));
-  gst_pad_set_chain_function (filter->sinkpad,
-                              GST_DEBUG_FUNCPTR(gst_metahandle_chain));
+  gst_pad_set_chain_function (filter->sinkpad,GST_DEBUG_FUNCPTR(gst_metahandle_chain));
   GST_PAD_SET_PROXY_CAPS (filter->sinkpad);
   gst_element_add_pad (GST_ELEMENT (filter), filter->sinkpad);
 
@@ -243,10 +243,10 @@ guint frame_count=0;
 static GstFlowReturn
 gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
 {
-  Gstmetahandle *filter;
+    Gstmetahandle *filter;
 
   filter = GST_METAHANDLE (parent);
-  //g_print("drawbox-buffer: \n");
+
   if(buf){
         //make buffer writable if not already 
         if(!gst_buffer_is_writable(buf)){
@@ -255,27 +255,43 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         if(filter->reader){
             const GstMetaInfo *gstmetainfo_videoroi=gst_myvideo_meta_get_info();
         
-            GstMyMeta * video_meta_write;
+            GstMyMeta * video_meta_rec;
             gpointer state=NULL;
             guint number_data_sets=gst_buffer_get_n_meta(buf,gstmetainfo_videoroi->api);
-            while(video_meta_write = gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api)){
-                //g_print("metahandle-reader-id: %d\n", video_meta_write->parent_id);
-                //g_print("metahandle-reader-x: %d\n", video_meta_write->x);
-            }
+            GstMapInfo info;
+            gboolean mapped=gst_buffer_map (buf, &info, GST_MAP_WRITE);
             
+            //get size
+            GstCaps *caps=gst_pad_get_current_caps (filter->srcpad);
+            //g_print(gst_caps_to_string(caps));
+            GstStructure *s = gst_caps_get_structure(caps, 0);
+            int width, height;
+            gst_structure_get_int (s, "width", &width);
+            gst_structure_get_int (s, "height", &height);
+            //g_print("size, %d %d \n",width,height);
+            gst_caps_unref (caps);
+            
+            while((video_meta_rec =(GstMyMeta *) gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api))){
+                if(mapped){
+                    // our rectangle...
+                    cv::Rect rect(video_meta_rec->x,video_meta_rec->y, video_meta_rec->w, video_meta_rec->h);
+                    cv::Mat img(width, height, CV_8UC4, info.data); // change your format accordingly
+                    cv::rectangle(img, rect, cv::Scalar(0, 0, 0),1);
+                    
+                }
+            }
+            gst_buffer_unmap (buf, &info);            
         }
         else{
             //create data to send ->should not be done in this plugin later
             guint number_data_sets_temp=2;    
-            GstMyMeta *video_roi_meta;
-             
-            for(int n=0;n<number_data_sets_temp;n++){
+            GstMyMeta *video_roi_meta;             
+            for(guint n=0;n<number_data_sets_temp;n++){
                 video_roi_meta=gst_buffer_add_myvideo_meta(buf,"test",10*n,10*n+1,10*n+20,40);
                 video_roi_meta->parent_id=frame_count;
                 video_roi_meta->id=n;
                 //g_print("metahandle-writer-x: %d\n", video_roi_meta->parent_id);
             }
-            
         }
     
   }
@@ -283,7 +299,8 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
   frame_count=frame_count+1;
   /* just push out the incoming buffer without touching it */
   return gst_pad_push (filter->srcpad, buf);
-
+} 
+/*
 static GstFlowReturn
 gst_metahandle_transform_ip (GstOpencvVideoFilter * base, GstBuffer * buf, cv::Mat cvImg){
     g_print("alive and active \n");
@@ -296,6 +313,7 @@ gst_metahandle_transform_ip (GstOpencvVideoFilter * base, GstBuffer * buf, cv::M
     //cvImg.release ();
     return GST_FLOW_OK;
     }
+*/
 /*
 static GstFlowReturn
 gst_metahandle_transform_ip (GstBaseTransform * base, GstBuffer * outbuf)

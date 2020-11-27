@@ -252,27 +252,28 @@ gst_meta2rtp_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
   Gstmeta2rtp *filter;
 
   filter = GST_META2RTP (parent);
-  //g_print ("new buffer \n");
   //make buffer writable if not already
-if(1){  
+ 
   if(buf){
+      
       if(!gst_buffer_is_writable(buf)){
         buf=gst_buffer_make_writable(buf);
-      }
+      }      
       if (filter->meta2rtp == TRUE ){
+           
             //write data to rtp-header
             //read out data from meta-data from buffer            
             const GstMetaInfo *gstmetainfo_videoroi=gst_myvideo_meta_get_info(); 
             guint number_data_sets=gst_buffer_get_n_meta(buf,gstmetainfo_videoroi->api);     
             gpointer state=NULL;
             
-            /*
             GstMyMeta write_data[number_data_sets];
             GstMyMeta * video_meta_write;
             for(int k=0;k<number_data_sets;k++){
                 video_meta_write = gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api);
+                //better would be to read out all meta-memory as a block to avoid copying of metadata
                 write_data[k]=*video_meta_write;
-                g_print("meta2rtp-writer: %d\n", write_data[k].parent_id);
+                //g_print("meta2rtp-writer: %d\n", write_data[k].parent_id);
             }
             //prepare buffer
             GstRTPBuffer rtpbuf;
@@ -281,76 +282,68 @@ if(1){
             
             //write data to buffer    
             guint data_size=sizeof(write_data);
-            gpointer gp_data= &write_data;
+            gpointer gp_data= write_data;
             gst_rtp_buffer_add_extension_twobytes_header(&rtpbuf,0,ID_DATA,gp_data,data_size);
                     
             //free buffer
             gst_rtp_buffer_unmap(&rtpbuf);
-            */
-            GstMyMeta write_data[number_data_sets];
-            GstMyMeta * video_meta_write;
-            for(int k=0;k<number_data_sets;k++){
-                video_meta_write = gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api);
-                write_data[k]=*video_meta_write;
-                g_print("meta2rtp-writer: %d\n", write_data[k].parent_id);
-            }
-            //prepare buffer
-            GstRTPBuffer rtpbuf;
-            memset (&rtpbuf, 0, sizeof(GstRTPBuffer));
-            gst_rtp_buffer_map (buf,(GstMapFlags)GST_MAP_WRITE, &rtpbuf);
             
-            //write data to buffer    
-            guint data_size=sizeof(write_data);
-            gpointer gp_data= &write_data;
-            gst_rtp_buffer_add_extension_twobytes_header(&rtpbuf,0,ID_DATA,gp_data,data_size);
-                    
-            //free buffer
-            gst_rtp_buffer_unmap(&rtpbuf);
         }        
       else{          
         //Read data
-        
         //Prepare buffer
-        GstRTPBuffer rtpbuf2;
-        memset (&rtpbuf2, 0, sizeof(GstRTPBuffer));
-        gst_rtp_buffer_map (buf,(GstMapFlags)GST_MAP_READ, &rtpbuf2);
+        GstRTPBuffer rtpbuf_read;
+        memset (&rtpbuf_read, 0, sizeof(GstRTPBuffer));
+        gst_rtp_buffer_map (buf,(GstMapFlags)GST_MAP_WRITE, &rtpbuf_read);
         
         //Read buffer
         guint8  appbit;
         gpointer gp_data;
         guint data_size;
+        //g_print ("rtp2meta 0 \n");
         
-        if(gst_rtp_buffer_get_extension_twobytes_header(&rtpbuf2,&appbit,ID_DATA,0,&gp_data,&data_size)){
+        if(gst_rtp_buffer_get_extension_twobytes_header(&rtpbuf_read,&appbit,ID_DATA,0,&gp_data,&data_size)){
             guint numb_data_sets=data_size/sizeof(GstMyMeta);
             GstMyMeta *video_meta_rec;
             GstMyMeta *video_meta_write;
             //handle data
+            
             if(numb_data_sets>0){
+                //g_print("rtp2meta-datasets: %d\n", numb_data_sets);    
                 video_meta_rec=&((GstMyMeta *)gp_data)[0];
+                
                 if(video_meta_rec->parent_id > filter->cur_frame){//RTP splits frame in several package - only need meta-data once
                     for(guint n=0;n<numb_data_sets;n++){
+                        
                         video_meta_rec=&((GstMyMeta *)gp_data)[n];
                         //Store result in buffer-meta data
-                        //video_roi_meta=gst_buffer_add_myvideo_meta(buf,"dummy",video_roi_meta_rec->x,video_roi_meta_rec->y,video_roi_meta_rec->w,video_roi_meta_rec->h);
-                        video_meta_write=gst_buffer_add_meta(buf,gst_myvideo_meta_get_info(),NULL);
-                        *video_meta_write=*video_meta_rec;//write meta-data into buffer-memory
-                        gst_myvideo_meta_add_param(video_meta_write,gst_structure_new_empty("roi/metahandle"));
-                        //g_print("meta2rtp-reader-x: %d\n", video_meta_write->x);    
+                        video_meta_write=gst_buffer_add_myvideo_meta_id(buf,video_meta_rec->roi_type,video_meta_rec->x,video_meta_rec->y,video_meta_rec->w,video_meta_rec->h);
+                        video_meta_write->id=video_meta_rec->id;
+                        video_meta_write->parent_id=video_meta_rec->parent_id;
+                        //TODO copy glist params
+                        //video_meta_write=gst_buffer_add_meta(buf,gst_myvideo_meta_get_info(),NULL);                       
+                        //*video_meta_write=*video_meta_rec;//write meta-data into buffer-memory //this does not work due to the GList *params field in the struct...
+                        //gst_myvideo_meta_add_param(video_meta_write,gst_structure_new_empty("roi/metahandle"));
+                        
                     }
                     //update cur_frame
                     filter->cur_frame=video_meta_rec->parent_id;
-                    //g_print(gst_structure_to_string (gst_myvideo_meta_get_param(video_roi_meta,"roi/drawbox")));
-                }            
+                    //g_print(gst_structure_to_string (gst_myvideo_meta_get_param(video_meta_write,"roi/drawbox")));
+                }
                 //else{g_print("meta2rtp-reader-duplicated meta");//maybe do: gst_buffer_remove_meta?}
+                
             }
+             
         }
         else{g_print("no data");}
-        //free buffer
-        gst_rtp_buffer_unmap (&rtpbuf2);
-      }
+        
+        //free rtp-buffer
+        gst_rtp_buffer_unmap (&rtpbuf_read);
+        }
   }
-}
+  //g_print ("rtp2meta beforeend \n");
   /* just push out the incoming buffer without touching it */
+  //GstFlowReturn test=gst_pad_push (filter->srcpad, buf);
   return gst_pad_push (filter->srcpad, buf);
 }
 

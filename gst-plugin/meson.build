@@ -31,13 +31,19 @@ gstmeta2rtp = library('gstmeta2rtp',
 
 # Plugin metahandle
 plugin_sources = [
-  'src/gstmetahandle.c'
+  'src/gstmetahandle.cpp'
   ]
+#https://github.com/cfoch/gst-plugins-cheese/blob/master/gst/face/gstcheesefacedetect.cpp
+opencv_dep = dependency('opencv', version : '>= 3.0.0', required : false)
+if not opencv_dep.found()
+  opencv_dep = dependency('opencv4', version : '>= 4.0.0', required : false)
+endif
 
 gstmetahandle = library('gstmetahandle',
   plugin_sources,
-  c_args: plugin_c_args,
-  dependencies : [gst_dep,gst_rtp_dep,gst_video_dep,libmeta_dep],
+  cpp_args : plugin_c_args,
+  link_args : ['-lgstopencv-1.0'],
+  dependencies : [gst_dep,gst_rtp_dep,gst_video_dep,libmeta_dep,opencv_dep],
   install : true,
   install_dir : plugins_install_dir,
 )

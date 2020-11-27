@@ -30,6 +30,14 @@
 #include <gst/video/gstvideometa.h>
 #include "gst-libs_gst_video_gstvideometa.h"
 
+#include <gst/opencv/gstopencvvideofilter.h>
+#include "opencv2/opencv.hpp"
+#include <opencv2/core/core_c.h>
+#if (CV_MAJOR_VERSION >= 3)
+#include <opencv2/imgproc/imgproc_c.h>
+#endif
+
+
 G_BEGIN_DECLS
 
 /* #defines don't like whitespacey bits */
@@ -49,8 +57,9 @@ typedef struct _GstmetahandleClass GstmetahandleClass;
 
 struct _Gstmetahandle
 {
+  //GstOpencvVideoFilter element;
   GstElement element;
-
+  
   GstPad *sinkpad, *srcpad;
 
   gboolean silent;
@@ -61,6 +70,7 @@ struct _Gstmetahandle
 
 struct _GstmetahandleClass 
 {
+  //GstOpencvVideoFilterClass parent_class;
   GstElementClass parent_class;
 };
 
