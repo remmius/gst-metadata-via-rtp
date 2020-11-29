@@ -260,7 +260,7 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
             guint number_data_sets=gst_buffer_get_n_meta(buf,gstmetainfo_videoroi->api);
             GstMapInfo info;
             gboolean mapped=gst_buffer_map (buf, &info, GST_MAP_WRITE);
-            
+            g_print("metahandle-reciever datasets %d \n",number_data_sets);
             //get size
             GstCaps *caps=gst_pad_get_current_caps (filter->srcpad);
             //g_print(gst_caps_to_string(caps));
@@ -282,6 +282,7 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
             }
             gst_buffer_unmap (buf, &info);            
         }
+        
         else{
             //create data to send ->should not be done in this plugin later
             guint number_data_sets_temp=2;    
@@ -292,8 +293,9 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
                 video_roi_meta->id=n;
                 //g_print("metahandle-writer-x: %d\n", video_roi_meta->parent_id);
             }
+            
         }
-    
+        
   }
   else{g_print("metahandle-buffer is empty \n");}
   frame_count=frame_count+1;
