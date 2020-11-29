@@ -307,11 +307,11 @@ gst_meta2rtp_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
             GstMyMeta *video_meta_rec;
             GstMyMeta *video_meta_write;
             //handle data
-            g_print("rtp2meta datasets %d \n",numb_data_sets);
+            //g_print("rtp2meta datasets %d \n",numb_data_sets);
             
             if(numb_data_sets>0){                
                 video_meta_rec=&((GstMyMeta *)gp_data)[0];
-                g_print("rtp2meta-frae: %d\n", video_meta_rec->parent_id);    
+                g_print("rtp2meta-frame: %d\n", video_meta_rec->parent_id);    
                 if(video_meta_rec->parent_id != filter->cur_frame){//RTP splits frame in several package - only need meta-data once: but order seems to be messed up even streamed locally
                     for(guint n=0;n<numb_data_sets;n++){
                         

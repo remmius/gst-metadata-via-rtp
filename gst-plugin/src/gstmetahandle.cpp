@@ -221,14 +221,24 @@ gst_metahandle_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
   switch (GST_EVENT_TYPE (event)) {
     case GST_EVENT_CAPS:
     {
-      GstCaps * caps;
+    GstCaps * caps;
 
-      gst_event_parse_caps (event, &caps);
+    gst_event_parse_caps (event, &caps);
       /* do something with the caps */
-
+      //get size
+    //GstCaps *caps=gst_pad_get_current_caps (filter->srcpad);
+    //g_print(gst_caps_to_string(caps));
+    GstStructure *s = gst_caps_get_structure(caps, 0);
+    int width, height;
+    gst_structure_get_int (s, "width", &width);
+    gst_structure_get_int (s, "height", &height);
+    g_print("size, %d %d \n",width,height);
+    gst_caps_unref (caps);
+    filter->width=width;
+    filter->height=height;
       /* and forward */
-      ret = gst_pad_event_default (pad, parent, event);
-      break;
+    ret = gst_pad_event_default (pad, parent, event);
+    break;
     }
     default:
       ret = gst_pad_event_default (pad, parent, event);
@@ -260,23 +270,20 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
             guint number_data_sets=gst_buffer_get_n_meta(buf,gstmetainfo_videoroi->api);
             GstMapInfo info;
             gboolean mapped=gst_buffer_map (buf, &info, GST_MAP_WRITE);
-            g_print("metahandle-reciever datasets %d \n",number_data_sets);
-            //get size
-            GstCaps *caps=gst_pad_get_current_caps (filter->srcpad);
-            //g_print(gst_caps_to_string(caps));
-            GstStructure *s = gst_caps_get_structure(caps, 0);
-            int width, height;
-            gst_structure_get_int (s, "width", &width);
-            gst_structure_get_int (s, "height", &height);
-            //g_print("size, %d %d \n",width,height);
-            gst_caps_unref (caps);
-            
+            //g_print("metahandle-reciever datasets %d \n",number_data_sets);
+
+            //g_print("size, %d %d \n",filter->width,filter->height);
             while((video_meta_rec =(GstMyMeta *) gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api))){
                 if(mapped){
                     // our rectangle...
                     cv::Rect rect(video_meta_rec->x,video_meta_rec->y, video_meta_rec->w, video_meta_rec->h);
-                    cv::Mat img(width, height, CV_8UC4, info.data); // change your format accordingly
+                    cv::Mat img(filter->height,filter->width, CV_8UC4, info.data); // change your format accordingly
                     cv::rectangle(img, rect, cv::Scalar(0, 0, 0),1);
+                    cv::putText(img,"test",cv::Point(video_meta_rec->x,video_meta_rec->y+video_meta_rec->h), // Coordinates
+                            cv::FONT_HERSHEY_COMPLEX_SMALL, // Font
+                            1.0, // Scale. 2.0 = 2x bigger
+                            cv::Scalar(0,0,0), // BGR Color
+                            1); // Line Thickness (Optional)); // Anti-alias (Optional)
                     
                 }
             }
@@ -285,7 +292,7 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         
         else{
             //create data to send ->should not be done in this plugin later
-            guint number_data_sets_temp=2;    
+            guint number_data_sets_temp=2;
             GstMyMeta *video_roi_meta;             
             for(guint n=0;n<number_data_sets_temp;n++){
                 video_roi_meta=gst_buffer_add_myvideo_meta(buf,"test",10*n,10*n+1,10*n+20,40);

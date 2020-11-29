@@ -66,6 +66,9 @@ struct _Gstmetahandle
   gboolean storedata;
   gboolean reader;
   
+  guint width;
+  guint height;
+  
 };
 
 struct _GstmetahandleClass 
