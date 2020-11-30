@@ -61,10 +61,10 @@ struct _Gstmeta2rtp {
   GstPad *sinkpad, *srcpad;
 
   gboolean silent;
-  gboolean meta2rtp;
+  gboolean modus;
+  guint data_id;
   
-  guint cur_frame;
-  
+  guint cur_frame;  
 };
 
 struct _Gstmeta2rtpClass 

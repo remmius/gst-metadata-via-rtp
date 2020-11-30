@@ -19,9 +19,6 @@
  * Boston, MA 02111-1307, USA.
  */
 
-//Testpipelines:
-//GST_PLUGIN_PATH=~/gstreamer/gst-metadata-via-rtp/builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! x264enc ! rtph264pay ! meta2rtp meta2rtp=true ! meta2rtp meta2rtp=false ! rtph264depay ! avdec_h264 ! autovideosink
-
 /**
  * SECTION:element-meta2rtp
  *
@@ -59,8 +56,38 @@ enum
 {
   PROP_0,
   PROP_SILENT,
-  PROP_META2RTP
+  PROP_MODUS,
+  PROP_DATAID,
 };
+#define DEFAULT_RTP_DATA_ID 10
+
+//Plugin-Property Modus: PROP_META2RTP
+enum
+{
+  MODUS_META2RTP,
+  MODUS_RTP2META
+};
+
+static const GEnumValue modus_types[] = {
+  {MODUS_META2RTP, "Convert meta to rtp-header", "meta2rtp"},
+  {MODUS_RTP2META, "Convert rtp-header to meta", "rtp2meta"},
+  {0, NULL, NULL},
+};
+
+#define GST_META2RTP_MODUS (gst_meta2rtp_modus_get_type())
+static GType
+gst_meta2rtp_modus_get_type (void)
+{
+  static GType modus_type = 0;
+
+  if (!modus_type) {
+    modus_type =
+        g_enum_register_static ("GstMeta2RtpModus", modus_types);
+  }
+  return modus_type;
+}
+//Plugin-Property Modus: PROP_META2RTP -END
+
 
 /* the capabilities of the inputs and outputs.
  *
@@ -118,18 +145,23 @@ gst_meta2rtp_class_init (Gstmeta2rtpClass * klass)
   g_object_class_install_property (gobject_class, PROP_SILENT,
     g_param_spec_boolean ("silent", "Silent", "Produce verbose output ?",
           FALSE, G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE));
-  g_object_class_install_property (gobject_class, PROP_META2RTP,
-      g_param_spec_boolean ("meta2rtp", "Meta2RTP", "True: Convert Meta to RTP-Header; False: Convert RTP-Header to Meta",
-          FALSE, G_PARAM_READWRITE));
+  g_object_class_install_property (gobject_class, PROP_MODUS,
+      g_param_spec_enum ("modus", "Modus", "Specify modus of plugin: convert meta to rtp-header or rtp-header to meta",
+        GST_META2RTP_MODUS,MODUS_RTP2META, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,PROP_DATAID,
+      g_param_spec_uint ("dataid","Data id for RTP-Header","Sets the data-id field for meta-data in the RTP-header.RFC 5285: 'The 8-bit ID is the local identifier of this element in the range 1-255 inclusive.'",
+          1, 255,DEFAULT_RTP_DATA_ID,
+          (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
   gst_element_class_set_details_simple (gstelement_class,
     "meta2rtp",
     "Generic/Filter",
-    "FIXME:Generic Template Filter",
-    "Klaus Hammer <<user@hostname.org>>");
+    "Transform meta-data (gstmymeta) to rtp header and vice versa in order to transport metadata via RTP.",
+    "Klaus Hammer <<https://github.com/remmius>>");
 
   gst_element_class_add_pad_template (gstelement_class,gst_static_pad_template_get (&src_template));
   gst_element_class_add_pad_template (gstelement_class,gst_static_pad_template_get (&sink_template));
-
+  
+  //gst_type_mark_as_plugin_api (GST_META2RTP_MODUS, 0);
   //GST_BASE_TRANSFORM_CLASS (klass)->transform_ip =GST_DEBUG_FUNCPTR (gst_meta2rtp_transform_ip);
 
   /* debug category for filtering log messages
@@ -176,8 +208,9 @@ static void
 gst_meta2rtp_init (Gstmeta2rtp *filter)
 {
   filter->silent = FALSE;
-  filter->meta2rtp=TRUE;
+  filter->modus=MODUS_RTP2META;
   filter->cur_frame=0;
+  filter->data_id=DEFAULT_RTP_DATA_ID;
   
   filter->sinkpad = gst_pad_new_from_static_template (&sink_template, "sink");
   gst_pad_set_event_function (filter->sinkpad,GST_DEBUG_FUNCPTR(gst_meta2rtp_sink_event));
@@ -200,9 +233,12 @@ gst_meta2rtp_set_property (GObject * object, guint prop_id,const GValue * value,
     case PROP_SILENT:
       filter->silent = g_value_get_boolean (value);
       break;
-    case PROP_META2RTP:
-      filter->meta2rtp = g_value_get_boolean (value);
+    case PROP_MODUS:
+      filter->modus = g_value_get_enum (value);
       break;
+    case PROP_DATAID:
+      filter->data_id=g_value_get_uint(value);
+    break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -219,8 +255,11 @@ gst_meta2rtp_get_property (GObject * object, guint prop_id,
     case PROP_SILENT:
       g_value_set_boolean (value, filter->silent);
       break;
-    case PROP_META2RTP:
-      g_value_set_boolean (value, filter->meta2rtp);
+    case PROP_MODUS:
+      g_value_set_enum (value, filter->modus);
+      break;
+    case PROP_DATAID:
+      g_value_set_uint (value, filter->data_id);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -229,7 +268,6 @@ gst_meta2rtp_get_property (GObject * object, guint prop_id,
 }
 
 /* GstBaseTransform vmethod implementations */
-guint ID_DATA=5;
 
 /* this function does the actual processing
  */
@@ -259,7 +297,7 @@ gst_meta2rtp_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
       if(!gst_buffer_is_writable(buf)){
         buf=gst_buffer_make_writable(buf);
       }      
-      if (filter->meta2rtp == TRUE ){
+      if (filter->modus == MODUS_META2RTP ){
            
             //write data to rtp-header
             //read out data from meta-data from buffer            
@@ -270,21 +308,22 @@ gst_meta2rtp_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
             GstMyMeta write_data[number_data_sets];
             GstMyMeta * video_meta_write;
             for(int k=0;k<number_data_sets;k++){
-                video_meta_write = gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api);
+                video_meta_write =(GstMyMeta *) gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api);
                 //better would be to read out all meta-memory as a block to avoid copying of metadata
                 write_data[k]=*video_meta_write;
-                //g_print("meta2rtp-writer: %d\n", write_data[k].parent_id);
+
             }
+            
             //prepare buffer
             GstRTPBuffer rtpbuf;
             memset (&rtpbuf, 0, sizeof(GstRTPBuffer));
             gst_rtp_buffer_map (buf,(GstMapFlags)GST_MAP_WRITE, &rtpbuf);
-            
+
             //write data to buffer    
             guint data_size=sizeof(write_data);
             gpointer gp_data= write_data;
-            gst_rtp_buffer_add_extension_twobytes_header(&rtpbuf,0,ID_DATA,gp_data,data_size);
-                    
+            gst_rtp_buffer_add_extension_twobytes_header(&rtpbuf,0,filter->data_id,gp_data,data_size);
+            
             //free buffer
             gst_rtp_buffer_unmap(&rtpbuf);
             
@@ -302,41 +341,29 @@ gst_meta2rtp_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         guint data_size;
         //g_print ("rtp2meta 0 \n");
         
-        if(gst_rtp_buffer_get_extension_twobytes_header(&rtpbuf_read,&appbit,ID_DATA,0,&gp_data,&data_size)){
+        if(gst_rtp_buffer_get_extension_twobytes_header(&rtpbuf_read,&appbit,filter->data_id,0,&gp_data,&data_size)){
             guint numb_data_sets=data_size/sizeof(GstMyMeta);
             GstMyMeta *video_meta_rec;
-            GstMyMeta *video_meta_write;
-            //handle data
-            //g_print("rtp2meta datasets %d \n",numb_data_sets);
+            //GstMyMeta *video_meta_write;
             
             if(numb_data_sets>0){                
                 video_meta_rec=&((GstMyMeta *)gp_data)[0];
-                g_print("rtp2meta-frame: %d\n", video_meta_rec->parent_id);    
-                if(video_meta_rec->parent_id != filter->cur_frame){//RTP splits frame in several package - only need meta-data once: but order seems to be messed up even streamed locally
-                    for(guint n=0;n<numb_data_sets;n++){
-                        
+                //g_print("rtp2meta-frame: %d\n", video_meta_rec->parent_id);                   
+                if(video_meta_rec->parent_id != filter->cur_frame){//RTP splits frame in several package - only need meta-data once: but order seems to be not straight up even if streamed locally
+                    for(guint n=0;n<numb_data_sets;n++){                        
                         video_meta_rec=&((GstMyMeta *)gp_data)[n];
-                        //Store result in buffer-meta data
-                        video_meta_write=gst_buffer_add_myvideo_meta_id(buf,video_meta_rec->roi_type,video_meta_rec->x,video_meta_rec->y,video_meta_rec->w,video_meta_rec->h);
-                        video_meta_write->id=video_meta_rec->id;
-                        video_meta_write->parent_id=video_meta_rec->parent_id;
-                        //TODO copy glist params
-                        //video_meta_write=gst_buffer_add_meta(buf,gst_myvideo_meta_get_info(),NULL);                       
-                        //*video_meta_write=*video_meta_rec;//write meta-data into buffer-memory //this does not work due to the GList *params field in the struct...
-                        //gst_myvideo_meta_add_param(video_meta_write,gst_structure_new_empty("roi/metahandle"));
-                        
+                        //Store result in buffer-meta data                        
+                        //video_meta_write=gst_buffer_add_myvideo_meta_id(buf,video_meta_rec->roi_type,video_meta_rec->x,video_meta_rec->y,video_meta_rec->w,video_meta_rec->h);
+                        gst_buffer_add_myvideo_meta_full (buf,video_meta_rec->id,video_meta_rec->parent_id,video_meta_rec->type_id,video_meta_rec->x,video_meta_rec->y,video_meta_rec->w,video_meta_rec->h);
                     }
                     //update cur_frame
                     filter->cur_frame=video_meta_rec->parent_id;
                     //g_print(gst_structure_to_string (gst_myvideo_meta_get_param(video_meta_write,"roi/drawbox")));
                 }
                 //else{g_print("meta2rtp-reader-duplicated meta");//maybe do: gst_buffer_remove_meta?}
-                
             }
-             
         }
-        else{g_print("no data");}
-        
+        else{g_print("no data");}        
         //free rtp-buffer
         gst_rtp_buffer_unmap (&rtpbuf_read);
         }

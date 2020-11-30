@@ -20,15 +20,14 @@
  
 /*This is purly based on the code of https://github.com/GStreamer/gst-plugins-base/blob/master/gst-libs/gst/video/gstvideometa.c
  * Only real change is the tags definition, which is reduced to one video tag in order to pass the metadata in the rtp264depay-element. 
- * The remaining changes are name related
+ * The remaining changes are name related.
+ * Added gint type_id to metadata to efficently transport the bounding box name as gint - however only for predefined names
  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include "gst-libs_gst_video_gstvideometa.h"
-
-#include <string.h>
 
 #ifndef GST_DISABLE_GST_DEBUG
 #define GST_CAT_DEFAULT ensure_debug_category()
@@ -68,7 +67,6 @@ gst_myvideo_meta_api_get_type (void)
   };
   */
 
-
   if (g_once_init_enter (&type)) {
     GType _type =
         gst_meta_api_type_register ("GstMyVideoMetaAPI", tags);
@@ -89,16 +87,18 @@ gst_myvideo_meta_transform (GstBuffer * dest, GstMeta * meta,
     smeta = (GstMyMeta *) meta;
 
     GST_DEBUG ("copy region of interest metadata");
-    dmeta =
-        gst_buffer_add_myvideo_meta_id (dest,
-        smeta->roi_type, smeta->x, smeta->y, smeta->w, smeta->h);
+    dmeta = gst_buffer_add_myvideo_meta_full (dest,smeta->id,smeta->parent_id,smeta->type_id,smeta->x,smeta->y,smeta->w,smeta->h);
+        //gst_buffer_add_myvideo_meta_id (dest,
+        //smeta->roi_type, smeta->x, smeta->y, smeta->w, smeta->h);
+        
     if (!dmeta)
       return FALSE;
 
-    dmeta->id = smeta->id;
-    dmeta->parent_id = smeta->parent_id;
-    dmeta->params = g_list_copy_deep (smeta->params,
-        (GCopyFunc) gst_structure_copy, NULL);
+    //dmeta->id = smeta->id;
+    //dmeta->parent_id = smeta->parent_id;
+    //dmeta->type_id=smeta->type_id;
+    //dmeta->params = g_list_copy_deep (smeta->params,
+    //    (GCopyFunc) gst_structure_copy, NULL);
   } else if (GST_VIDEO_META_TRANSFORM_IS_SCALE (type)) {
     GstVideoMetaTransform *trans = data;
     gint ow, oh, nw, nh;
@@ -111,15 +111,15 @@ gst_myvideo_meta_transform (GstBuffer * dest, GstMeta * meta,
 
     smeta = (GstMyMeta *) meta;
     dmeta =
-        gst_buffer_add_myvideo_meta_id (dest,
-        smeta->roi_type, (smeta->x * nw) / ow, (smeta->y * nh) / oh,
+        gst_buffer_add_myvideo_meta_full (dest,
+        smeta->id,smeta->parent_id,smeta->type_id, (smeta->x * nw) / ow, (smeta->y * nh) / oh,
         (smeta->w * nw) / ow, (smeta->h * nh) / oh);
     if (!dmeta)
       return FALSE;
 
-    dmeta->id = smeta->id;
-    dmeta->parent_id = smeta->parent_id;
-
+    //dmeta->id = smeta->id;
+    //dmeta->parent_id = smeta->parent_id;
+    //dmeta->type_id=smeta->type_id;
     GST_DEBUG ("region of interest (id:%d, parent id:%d) offset %dx%d -> %dx%d",
         smeta->id, smeta->parent_id, smeta->x, smeta->y, dmeta->x, dmeta->y);
     GST_DEBUG ("region of interest size   %dx%d -> %dx%d", smeta->w, smeta->h,
@@ -136,11 +136,12 @@ gst_myvideo_meta_init (GstMeta * meta, gpointer params,
     GstBuffer * buffer)
 {
   GstMyMeta *emeta = (GstMyMeta *) meta;
-  emeta->roi_type = 0;
+  //emeta->roi_type = 0;
+  emeta->type_id=0;
   emeta->id = 0;
   emeta->parent_id = 0;
   emeta->x = emeta->y = emeta->w = emeta->h = 0;
-  emeta->params = NULL;
+  //emeta->params = NULL;
 
   return TRUE;
 }
@@ -148,9 +149,8 @@ gst_myvideo_meta_init (GstMeta * meta, gpointer params,
 static void
 gst_myvideo_meta_free (GstMeta * meta, GstBuffer * buffer)
 {
-  GstMyMeta *emeta = (GstMyMeta *) meta;
-
-  g_list_free_full (emeta->params, (GDestroyNotify) gst_structure_free);
+  //GstMyMeta *emeta = (GstMyMeta *) meta;
+ //g_list_free_full (emeta->params, (GDestroyNotify) gst_structure_free);
 }
 
 const GstMetaInfo *
@@ -176,12 +176,12 @@ gst_myvideo_meta_get_info (void)
  * @buffer: a #GstBuffer
  * @id: a metadata id
  *
- * Find the #GstVideoRegionOfInterestMeta on @buffer with the given @id.
+ * Find the #GstMyVideoMeta on @buffer with the given @id.
  *
- * Buffers can contain multiple #GstVideoRegionOfInterestMeta metadata items if
+ * Buffers can contain multiple #GstMyVideoMeta metadata items if
  * multiple regions of interests are marked on a frame.
  *
- * Returns: (transfer none): the #GstVideoRegionOfInterestMeta with @id or %NULL when there is
+ * Returns: (transfer none): the #GstMyVideoMeta with @id or %NULL when there is
  * no such metadata on @buffer.
  */
 GstMyMeta *
@@ -203,6 +203,43 @@ gst_buffer_get_myvideo_meta_id (GstBuffer * buffer, gint id)
 }
 
 /**
+ * gst_buffer_add_myvideo_meta_full:
+ * @buffer: a #GstBuffer
+ * @id: Id of the meta-data
+ * @parent_id used for framecount
+ * @type_id Type of the region of interest (e.g. 0,1,)
+ * @x: X position
+ * @y: Y position
+ * @w: width
+ * @h: height
+ *
+ * Attaches #GstMyVideoMeta metadata to @buffer with the given
+ * parameters.
+ *
+ * Returns: (transfer none): the #GstMyVideoMeta on @buffer.
+ */
+
+GstMyMeta *
+gst_buffer_add_myvideo_meta_full (GstBuffer * buffer,gint id,gint parent_id,gint type_id,guint x,guint y,guint w, guint h)
+{
+  GstMyMeta *meta;
+
+  g_return_val_if_fail (GST_IS_BUFFER (buffer), NULL);
+
+  meta = (GstMyMeta *) gst_buffer_add_meta (buffer,
+      GST_MYVIDEO_META_INFO, NULL);
+  meta->id = id;
+  meta->parent_id = parent_id;
+  meta->type_id = type_id;  
+  meta->x = x;
+  meta->y = y;
+  meta->w = w;
+  meta->h = h;
+
+  return meta;
+}
+
+/**
  * gst_buffer_add_video_region_of_interest_meta:
  * @buffer: a #GstBuffer
  * @roi_type: Type of the region of interest (e.g. "face")
@@ -211,11 +248,12 @@ gst_buffer_get_myvideo_meta_id (GstBuffer * buffer, gint id)
  * @w: width
  * @h: height
  *
- * Attaches #GstVideoRegionOfInterestMeta metadata to @buffer with the given
+ * Attaches #GstMyVideoMeta metadata to @buffer with the given
  * parameters.
  *
- * Returns: (transfer none): the #GstVideoRegionOfInterestMeta on @buffer.
+ * Returns: (transfer none): the #GstMyVideoMeta on @buffer.
  */
+/*
 GstMyMeta *
 gst_buffer_add_myvideo_meta (GstBuffer * buffer,
     const gchar * roi_type, guint x, guint y, guint w, guint h)
@@ -223,7 +261,7 @@ gst_buffer_add_myvideo_meta (GstBuffer * buffer,
   return gst_buffer_add_myvideo_meta_id (buffer,
       g_quark_from_string (roi_type), x, y, w, h);
 }
-
+*/
 /**
  * gst_buffer_add_video_region_of_interest_meta_id:
  * @buffer: a #GstBuffer
@@ -233,11 +271,12 @@ gst_buffer_add_myvideo_meta (GstBuffer * buffer,
  * @w: width
  * @h: height
  *
- * Attaches #GstVideoRegionOfInterestMeta metadata to @buffer with the given
+ * Attaches #GstMyVideoMeta metadata to @buffer with the given
  * parameters.
  *
- * Returns: (transfer none): the #GstVideoRegionOfInterestMeta on @buffer.
+ * Returns: (transfer none): the #GstMyVideoMeta on @buffer.
  */
+/*
 GstMyMeta *
 gst_buffer_add_myvideo_meta_id (GstBuffer * buffer,
     GQuark roi_type, guint x, guint y, guint w, guint h)
@@ -256,10 +295,11 @@ gst_buffer_add_myvideo_meta_id (GstBuffer * buffer,
 
   return meta;
 }
+*/
 
 /**
  * gst_video_region_of_interest_meta_add_param:
- * @meta: a #GstVideoRegionOfInterestMeta
+ * @meta: a #GstMyVideoMeta
  * @s: (transfer full): a #GstStructure
  *
  * Attach element-specific parameters to @meta meant to be used by downstream
@@ -274,6 +314,7 @@ gst_buffer_add_myvideo_meta_id (GstBuffer * buffer,
  *
  * Since: 1.14
  */
+ /*
 void
 gst_myvideo_meta_add_param (GstMyMeta *
     meta, GstStructure * s)
@@ -283,10 +324,10 @@ gst_myvideo_meta_add_param (GstMyMeta *
 
   meta->params = g_list_append (meta->params, s);
 }
-
+*/
 /**
  * gst_video_region_of_interest_meta_get_param:
- * @meta: a #GstVideoRegionOfInterestMeta
+ * @meta: a #GstMyVideoMeta
  * @name: a name.
  *
  * Retrieve the parameter for @meta having @name as structure name,
@@ -297,6 +338,7 @@ gst_myvideo_meta_add_param (GstMyMeta *
  * Since: 1.14
  * See also: gst_video_region_of_interest_meta_add_param()
  */
+ /*
 GstStructure *
 gst_myvideo_meta_get_param (GstMyMeta *
     meta, const gchar * name)
@@ -315,4 +357,4 @@ gst_myvideo_meta_get_param (GstMyMeta *
 
   return NULL;
 }
-
+*/

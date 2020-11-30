@@ -30,7 +30,6 @@
 #include <gst/video/gstvideometa.h>
 #include "gst-libs_gst_video_gstvideometa.h"
 
-#include <gst/opencv/gstopencvvideofilter.h>
 #include "opencv2/opencv.hpp"
 #include <opencv2/core/core_c.h>
 #if (CV_MAJOR_VERSION >= 3)
@@ -63,8 +62,9 @@ struct _Gstmetahandle
   GstPad *sinkpad, *srcpad;
 
   gboolean silent;
-  gboolean storedata;
-  gboolean reader;
+  gboolean modus;
+  
+  //add "metadata-array"
   
   guint width;
   guint height;

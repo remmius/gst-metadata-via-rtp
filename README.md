@@ -1,3 +1,47 @@
+# Gstreamer plugins to send meta-data with RTP
+
+This projects contains two GStreamer-plugins (meta2rtp and metahandle) to enable a transport of meta-data over the network using RTP. If the metadata are not added to the RTP-header, they are not included in the RTP-package and are therefore lost on sending the data. Therefore the plugin (meta2rtp) transforms specific meta-data attached to a buffer to the RTP-header and vice versa. The purpose of the second plugin (metahandle) is to add the meta-data to the frame in gstreamer and to overlay it on the reciever side. Therefore the second plugin mainly a demonstration tool, which should be extended/adapted for one's usecase. Same is valid for the meta-data. Currently it is a bounding-box based on gstvideometa with some modifications to be passed through "rtph264depay".
+This meta-data transportation could be helpful e.g. in case the reciever is displaying the annotate video and performing some video-analysis/CV and therefore benefits from unmodified videodata. Main benefit of this approach is that the meta-data and video-data do not need to be resyncronised again on the reciever side.
+So far this has only been tested with the state pipelines below using h264-data, but should not be limited too. Modifications of the pads might be neccessary.
+
+## Usage
+Either use the docker file to run the example pipelines, or install the neccessary files (see docker-file for list of pacakges) and use the meson-build process of the GStreamer template repository.
+
+### Test on Ubuntu 20.04
+Checkout this repo and go to its base-directory.
+    
+Configure and build all examples (application and plugins) as such:
+
+    meson builddir
+    ninja -C builddir
+    
+Run the sender pipeline:
+
+    GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
+
+Run the reciever pipeline:
+
+    GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert  ! metahandle modus=reader ! videoconvert  ! autovideosink
+
+You should see the 3 static bounding boxes on the reciever-side video with a name-tag.
+This was tested on Ubunutu 20.04 with GStreamer 1.16.2 and OpenCV 4.2.0
+
+### Test with dockerfile
+Checkout this repo and go to its base-directory and build the image with e.g. 
+
+    docker build --tag metadata .
+    
+Start a container for the sender side with:
+
+    export TARGET_IP=192.168.0.18
+    docker run -it --rm --net=host  metadata gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=$TARGET_IP port=5555
+
+Start a container for the reciever side with:
+
+    xhost +local:root #this is not really save- check for better ways e.g. http://wiki.ros.org/docker/Tutorials/GUI
+    docker run -it -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=unix$DISPLAY --rm --net=host  metadata gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert  ! metahandle modus=reader ! videoconvert  ! autovideosink
+    xhost -local:root
+
 # GStreamer template repository
 
 This git module contains template code for possible GStreamer projects.
