@@ -1,4 +1,4 @@
-# Gstreamer plugins to send meta-data with RTP
+# Gstreamer plugins to send gst-meta-data as RTP-Header
 
 This project contains two GStreamer-plugins (meta2rtp and metahandle) to enable the transport of meta-data over the network using RTP. If the metadata are not added to the RTP-header, they are not included in the RTP-package and are therefore lost on sending the data. Therefore the plugin (meta2rtp) transforms specific meta-data attached to a buffer to the RTP-header and vice versa. The purpose of the second plugin (metahandle) is to add the meta-data to the frame in gstreamer-environment and to overlay it on the reciever side. Therefore the second plugin mainly a demonstration tool, which should be extended/adapted for one's usecase. Same is valid for the meta-data. Currently it is a bounding-box based on gstvideometa with some modifications to be passed through "rtph264depay".
 This meta-data transportation could be helpful e.g. in case the reciever is displaying the annotate video and performing some video-analysis/CV and therefore benefits from recieving unmodified videodata. Main benefit of this approach is that the meta-data and video-data do not need to be resyncronised again on the reciever side.
@@ -8,7 +8,7 @@ So far this has only been tested with the state pipelines below using h264-data,
 Either use the docker file to run the example pipelines, or install the neccessary files (see docker-file for list of pacakges) and use the meson-build process of the GStreamer template repository.
 
 ### With plain Ubuntu 20.04
-Checkout this repo and go to its base-directory.
+Checkout this repo and go to its base-directory. Install relevant packages (gstreamer,opencv), see dockerfile for details.
     
 Configure and build all examples (application and plugins) as such:
 

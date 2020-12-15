@@ -55,7 +55,7 @@ RUN apt-get install -y \
 #  && ninja -j4 install \
 #  && rm /opencv.zip \
 #  && rm /opencv_contrib.zip
-RUN ldconfig -v
+#RUN ldconfig -v
 
 #build plugins
 WORKDIR /data
