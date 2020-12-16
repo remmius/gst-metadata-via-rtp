@@ -30,12 +30,14 @@
 #include <gst/video/gstvideometa.h>
 #include "gst-libs_gst_video_gstvideometa.h"
 
+
 #include "opencv2/opencv.hpp"
 #include <opencv2/core/core_c.h>
 #if (CV_MAJOR_VERSION >= 3)
 #include <opencv2/imgproc/imgproc_c.h>
 #endif
 
+#include "colors.h"
 
 G_BEGIN_DECLS
 
@@ -63,11 +65,17 @@ struct _Gstmetahandle
 
   gboolean silent;
   gboolean modus;
+  gboolean true_color;
+  guint box_colorR,box_colorG,box_colorB;
+  guint label_colorR,label_colorG,label_colorB;
   
   //add "metadata-array"
   
   guint width;
   guint height;
+  guint cv_type;
+  guint format;
+  
   
 };
 
