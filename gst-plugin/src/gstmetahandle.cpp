@@ -1,7 +1,7 @@
 /*
  * GStreamer
  * Copyright (C) 2006 Stefan Kost <ensonic@users.sf.net>
- * Copyright (C) 2020 Klaus Hammer <<klaushammer52@gmail.com>>
+ * Copyright (C) 2020 Klaus Hammer <klaushammer52@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -70,17 +70,8 @@ enum
   PROP_0,
   PROP_SILENT,
   PROP_MODUS,
-  PROP_BOX_COLOR_R,
-  PROP_BOX_COLOR_B,
-  PROP_BOX_COLOR_G,
-  PROP_LABEL_COLOR_R,
-  PROP_LABEL_COLOR_B,
-  PROP_LABEL_COLOR_G,
   PROP_TRUE_COLOR
 };
-
-#define DEFAULT_PROP_BOX_COLOR 0
-#define DEFAULT_PROP_LABEL_COLOR 100
 
 //Plugin-Property Modus: PROP_METAHANDLE
 enum
@@ -173,26 +164,6 @@ gst_metahandle_class_init (GstmetahandleClass * klass)
     g_param_spec_boolean ("true-color", "True OpenCV colorspace", "Convert frame always to BGR(x)-colorspace and back",
           TRUE,(GParamFlags) (G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE)));
           
-  g_object_class_install_property (gobject_class, PROP_BOX_COLOR_R,
-      g_param_spec_int ("boxcolorR", "Box-color -Red ","Specify the colorR of bounding box",
-       0, 255,DEFAULT_PROP_BOX_COLOR, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-  g_object_class_install_property (gobject_class, PROP_BOX_COLOR_R,
-      g_param_spec_int ("boxcolorG", "Box-color -Green ","Specify the colorG of bounding box",
-       0, 255,DEFAULT_PROP_BOX_COLOR, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-  g_object_class_install_property (gobject_class, PROP_BOX_COLOR_R,
-      g_param_spec_int ("boxcolorB", "Box-color -Blue ","Specify the colorB of bounding box",
-       0, 255,DEFAULT_PROP_BOX_COLOR, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-       
-  g_object_class_install_property (gobject_class, PROP_LABEL_COLOR_R,
-      g_param_spec_int ("labelcolorR", "Label-color -Red ","Specify the colorR of Label",
-       0, 255,DEFAULT_PROP_LABEL_COLOR, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-  g_object_class_install_property (gobject_class, PROP_LABEL_COLOR_R,
-      g_param_spec_int ("labelcolorG", "Label-color -Green ","Specify the colorG of Label",
-       0, 255,DEFAULT_PROP_LABEL_COLOR, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-  g_object_class_install_property (gobject_class, PROP_LABEL_COLOR_R,
-      g_param_spec_int ("labelcolorB", "Label-color -Blue ","Specify the colorB of Label",
-       0, 255,DEFAULT_PROP_LABEL_COLOR, (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-       
   gst_element_class_set_details_simple (gstelement_class,
     "metahandle",
     "Generic/Filter",
@@ -223,14 +194,6 @@ gst_metahandle_init (Gstmetahandle *filter)
   filter->modus = MODUS_READER;
   filter->true_color=TRUE;
   
-  filter->box_colorR=DEFAULT_PROP_BOX_COLOR;
-  filter->box_colorG=DEFAULT_PROP_BOX_COLOR;
-  filter->box_colorB=DEFAULT_PROP_BOX_COLOR;
-  
-  filter->label_colorR=DEFAULT_PROP_LABEL_COLOR;
-  filter->label_colorG=DEFAULT_PROP_LABEL_COLOR;
-  filter->label_colorB=DEFAULT_PROP_LABEL_COLOR;
-  
   filter->sinkpad = gst_pad_new_from_static_template (&sink_template, "sink");
   gst_pad_set_event_function (filter->sinkpad,
                               GST_DEBUG_FUNCPTR(gst_metahandle_sink_event));
@@ -258,27 +221,7 @@ gst_metahandle_set_property (GObject * object, guint prop_id,
       break;
     case PROP_TRUE_COLOR:
       filter->true_color = g_value_get_boolean (value);
-      break;
-    case PROP_BOX_COLOR_R:
-      filter->box_colorR = g_value_get_int (value);
-      break;
-    case PROP_BOX_COLOR_G:
-      filter->box_colorG = g_value_get_int (value);
-      break;
-    case PROP_BOX_COLOR_B:
-      filter->box_colorB = g_value_get_int (value);
-      break;
-      
-    case PROP_LABEL_COLOR_R:
-      filter->label_colorR = g_value_get_int (value);
-      break;
-    case PROP_LABEL_COLOR_G:
-      filter->label_colorG = g_value_get_int (value);
-      break;
-    case PROP_LABEL_COLOR_B:
-      filter->label_colorB = g_value_get_int (value);
-      break;
-      
+      break;      
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -301,25 +244,6 @@ gst_metahandle_get_property (GObject * object, guint prop_id,
     case PROP_TRUE_COLOR:
       g_value_set_boolean (value, filter->true_color);
       break;
-    case PROP_BOX_COLOR_R:
-      g_value_set_int (value, filter->box_colorR);
-      break;
-    case PROP_BOX_COLOR_G:
-      g_value_set_int (value, filter->box_colorG);
-      break;
-    case PROP_BOX_COLOR_B:
-      g_value_set_int (value, filter->box_colorB);
-      break;
-       
-    case PROP_LABEL_COLOR_R:
-      g_value_set_int (value, filter->label_colorR);
-      break;
-    case PROP_LABEL_COLOR_G:
-      g_value_set_int (value, filter->label_colorG);
-      break;
-    case PROP_LABEL_COLOR_B:
-      g_value_set_int (value, filter->label_colorB);
-      break; 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -351,27 +275,11 @@ gst_metahandle_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
     if (!gst_video_info_from_caps (&info, caps)) {
         GST_ERROR ("Failed to get the videoinfo from caps");
     }
-    //gst_opencv_cv_image_type_from_video_format (GST_VIDEO_INFO_FORMAT(&info), filter->cv_type, GError ** err)
     filter->format=GST_VIDEO_INFO_FORMAT(&info);
-    switch(filter->format){
-        case GST_VIDEO_FORMAT_RGBx:
-        case GST_VIDEO_FORMAT_BGRx:
-            filter->cv_type=CV_8UC4;
-            break;
-        case GST_VIDEO_FORMAT_RGB:
-        case GST_VIDEO_FORMAT_BGR:
-            filter->cv_type=CV_8UC3;
-            break;
-        case GST_VIDEO_FORMAT_GRAY8:
-            filter->cv_type=CV_8UC1;
-            break;
-        default:
-            GST_ERROR("\n Unsupported caps %s \n",gst_caps_to_string (caps));
-    }
-    
+    gst_opencv_cv_image_type_from_video_format (GST_VIDEO_INFO_FORMAT(&info), (int*)&(filter->cv_type), NULL);
     filter->width=GST_VIDEO_INFO_WIDTH(&info);
-    filter->height=GST_VIDEO_INFO_HEIGHT(&info);    
-    //g_print("size, %d %d \n",filter->width,filter->height);    
+    filter->height=GST_VIDEO_INFO_HEIGHT(&info);
+    
     gst_caps_unref (caps);
 
       /* and forward */
@@ -409,10 +317,9 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
 
             while((video_meta_rec =(GstMyMeta *) gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api))){
                 if(mapped){
-                    // our rectangle...
                     cv::Rect rect(video_meta_rec->x,video_meta_rec->y, video_meta_rec->w, video_meta_rec->h);
-                    cv::Mat img(filter->height,filter->width, filter->cv_type, info.data); // change your format accordingly
-                    if(filter->true_color){
+                    cv::Mat img(filter->height,filter->width, filter->cv_type, info.data);
+                    if(filter->true_color){//Convert to OpenCV BGR-default colorspace
                         switch(filter->format){
                             case GST_VIDEO_FORMAT_RGB:
                                 cv::cvtColor(img, img, CV_RGB2BGR);
@@ -420,31 +327,27 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
                             case GST_VIDEO_FORMAT_RGBx:
                                 cv::cvtColor(img, img, CV_RGBA2BGRA);
                                 break;
-                            case GST_VIDEO_FORMAT_BGRx:
-                            case GST_VIDEO_FORMAT_BGR:
-                            case GST_VIDEO_FORMAT_GRAY8:
-                                break;
                         }
-                    }
-                    cv::rectangle(img, rect, cv::Scalar(filter->box_colorB,filter->box_colorG,filter->box_colorR),1);
-                    cv::Size textrect = cv::getTextSize(enum_to_string(video_meta_rec->type_id), cv::FONT_HERSHEY_COMPLEX_SMALL, 1.0, 1, 0);
+                    }                    
+                    cv::Size textrect = cv::getTextSize(typeid_to_string(video_meta_rec->type_id), cv::FONT_HERSHEY_COMPLEX_SMALL, 1.0, 1, 0);
                     double scalex = (double)video_meta_rec->w / (double)textrect.width;
                     double scaley = (double)video_meta_rec->h / (double)textrect.height;
                     double scale = std::min(std::min(scalex, scaley),1.0);
-                    cv::putText(img,enum_to_string(video_meta_rec->type_id),cv::Point(video_meta_rec->x,video_meta_rec->y+video_meta_rec->h), // Coordinates
-                    cv::FONT_HERSHEY_COMPLEX_SMALL,scale, cv::Scalar(filter->label_colorB,filter->label_colorG,filter->label_colorR), 1);
+                    cv::Scalar drawcolor=typeid_to_cv_color(video_meta_rec->type_id);
+                    if(filter->format==GST_VIDEO_FORMAT_GRAY8){
+                        drawcolor[0]=(int)((drawcolor[0]+(int)drawcolor[1]+(int)drawcolor[2])/3); //avg of BGR-values for gray-channel
+                    }                    
+                    cv::rectangle(img, rect, drawcolor,1);
+                    cv::putText(img,typeid_to_string(video_meta_rec->type_id),cv::Point(video_meta_rec->x,video_meta_rec->y+video_meta_rec->h), // Coordinates
+                    cv::FONT_HERSHEY_COMPLEX_SMALL,scale, drawcolor, 1);
+                    
                     if(filter->true_color){
-                        switch(filter->format){
-                            
+                        switch(filter->format){                            
                             case GST_VIDEO_FORMAT_RGB:
                                 cv::cvtColor(img, img, CV_BGR2RGB);
                                 break;
                             case GST_VIDEO_FORMAT_RGBx:
                                 cv::cvtColor(img, img, CV_BGRA2RGBA);
-                                break;
-                            case GST_VIDEO_FORMAT_BGRx:
-                            case GST_VIDEO_FORMAT_BGR:
-                            case GST_VIDEO_FORMAT_GRAY8:
                                 break;
                         }
                     }
@@ -457,7 +360,7 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
             //create data to send ->should not be done in this plugin later
             guint number_data_sets_temp=3;
             for(guint n=0;n<number_data_sets_temp;n++){
-                gst_buffer_add_myvideo_meta_full(buf,string_to_enum("dummy")+n,frame_count,1+n,100*n,10*n+1,10*n+20,40);
+                gst_buffer_add_myvideo_meta_full(buf,string_to_typeid("dummy")+n,frame_count,1+n,100*n,10*n+1,10*n+20,40);
             }
         }
   }

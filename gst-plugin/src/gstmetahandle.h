@@ -2,7 +2,7 @@
  * GStreamer
  * Copyright (C) 2006 Stefan Kost <ensonic@users.sf.net>
  * Copyright (C) 2020 Niels De Graef <niels.degraef@gmail.com>
- * Copyright (C) 2020 klaus <<user@hostname.org>>
+ * Copyright (C) 2020 Klaus Hammer <klaushammer52@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -37,7 +37,21 @@
 #include <opencv2/imgproc/imgproc_c.h>
 #endif
 
-#include "colors.h"
+#include <gst/opencv/gstopencvutils.h>
+#define COLOR_blue  cv::Scalar(255,0,0)
+#define COLORS_black  cv::Scalar(0,0,0)
+#define COLORS_cyan  cv::Scalar(255,255,0)
+#define COLORS_darkred  cv::Scalar(0,0,139)
+
+cv::Scalar typeid_to_cv_color(int type){
+    switch(type) {
+      case face: return COLOR_blue;
+      case box0: return COLORS_black;
+      case box1: return COLORS_cyan;
+      case box2: return COLORS_darkred;
+      default:   return COLORS_black;
+   }
+}
 
 G_BEGIN_DECLS
 
@@ -66,16 +80,13 @@ struct _Gstmetahandle
   gboolean silent;
   gboolean modus;
   gboolean true_color;
-  guint box_colorR,box_colorG,box_colorB;
-  guint label_colorR,label_colorG,label_colorB;
   
-  //add "metadata-array"
+  //add "metadata-array"?
   
   guint width;
   guint height;
   guint cv_type;
   guint format;
-  
   
 };
 
