@@ -1,7 +1,7 @@
 /*
  * GStreamer
  * Copyright (C) 2006 Stefan Kost <ensonic@users.sf.net>
- * Copyright (C) 2020 Klaus Hammer <<user@hostname.org>>
+ * Copyright (C) 2020 Klaus Hammer <klaushammer52@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +23,13 @@
 //GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
 //GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert  ! metahandle modus=reader ! videoconvert  ! autovideosink
 
+//with gray8:
+//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! video/x-raw,format=GRAY8 ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
+//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert ! video/x-raw,format=GRAY8  ! metahandle modus=reader ! videoconvert  ! autovideosink
+
+//with RGB
+//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! video/x-raw,format=RGB ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
+//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert ! video/x-raw,format=RGB  ! metahandle modus=reader ! videoconvert  ! autovideosink
 /**
  * SECTION:element-metahandle
  *
@@ -63,6 +70,7 @@ enum
   PROP_0,
   PROP_SILENT,
   PROP_MODUS,
+  PROP_TRUE_COLOR
 };
 
 //Plugin-Property Modus: PROP_METAHANDLE
@@ -102,7 +110,7 @@ GST_STATIC_PAD_TEMPLATE (
   "sink",
   GST_PAD_SINK,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("RGBx"))
+  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("{BGRx,BGR,RGBx,RGB,GRAY8}"))
 );
 
 static GstStaticPadTemplate src_template =
@@ -110,7 +118,7 @@ GST_STATIC_PAD_TEMPLATE (
   "src",
   GST_PAD_SRC,
   GST_PAD_ALWAYS,
-  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("RGBx"))
+  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("{BGRx,BGR,RGBx,RGB,GRAY8}"))
 );
 
 #define gst_metahandle_parent_class parent_class
@@ -152,12 +160,15 @@ gst_metahandle_class_init (GstmetahandleClass * klass)
   g_object_class_install_property (gobject_class, PROP_MODUS,
       g_param_spec_enum ("modus", "Modus", "Specify modus of plugin: Read and draw meta or write dummy data as metadata to buffer",
         GST_METAHANDLE_MODUS,MODUS_READER,(GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
+  g_object_class_install_property (gobject_class, PROP_TRUE_COLOR,
+    g_param_spec_boolean ("true-color", "True OpenCV colorspace", "Convert frame always to BGR(x)-colorspace and back",
+          TRUE,(GParamFlags) (G_PARAM_READWRITE | GST_PARAM_CONTROLLABLE)));
+          
   gst_element_class_set_details_simple (gstelement_class,
     "metahandle",
     "Generic/Filter",
     "Filter to insert gstmymeta to be send downstream  or to extract thm",
-    "Klaus Hammer <<https://github.com/remmius>>");
+    "Klaus Hammer <<klaushammer52@gmail.com>>");
 
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&src_template));
@@ -181,6 +192,7 @@ gst_metahandle_init (Gstmetahandle *filter)
 {
   filter->silent = FALSE;
   filter->modus = MODUS_READER;
+  filter->true_color=TRUE;
   
   filter->sinkpad = gst_pad_new_from_static_template (&sink_template, "sink");
   gst_pad_set_event_function (filter->sinkpad,
@@ -207,6 +219,9 @@ gst_metahandle_set_property (GObject * object, guint prop_id,
     case PROP_MODUS:
       filter->modus = g_value_get_enum (value);
       break;
+    case PROP_TRUE_COLOR:
+      filter->true_color = g_value_get_boolean (value);
+      break;      
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -225,6 +240,9 @@ gst_metahandle_get_property (GObject * object, guint prop_id,
       break;
     case PROP_MODUS:
       g_value_set_enum (value, filter->modus);
+      break;
+    case PROP_TRUE_COLOR:
+      g_value_set_boolean (value, filter->true_color);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -249,20 +267,21 @@ gst_metahandle_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
   switch (GST_EVENT_TYPE (event)) {
     case GST_EVENT_CAPS:
     {
+        
     GstCaps * caps;
-
-    gst_event_parse_caps (event, &caps);
-      /* do something with the caps */
-      //get size
-    //GstCaps *caps=gst_pad_get_current_caps (filter->srcpad);
-    GstStructure *s = gst_caps_get_structure(caps, 0);
-    int width, height;
-    gst_structure_get_int (s, "width", &width);
-    gst_structure_get_int (s, "height", &height);
-    g_print("size, %d %d \n",width,height);
+    gst_event_parse_caps (event, &caps);    
+    
+    GstVideoInfo info;
+    if (!gst_video_info_from_caps (&info, caps)) {
+        GST_ERROR ("Failed to get the videoinfo from caps");
+    }
+    filter->format=GST_VIDEO_INFO_FORMAT(&info);
+    gst_opencv_cv_image_type_from_video_format (GST_VIDEO_INFO_FORMAT(&info), (int*)&(filter->cv_type), NULL);
+    filter->width=GST_VIDEO_INFO_WIDTH(&info);
+    filter->height=GST_VIDEO_INFO_HEIGHT(&info);
+    
     gst_caps_unref (caps);
-    filter->width=width;
-    filter->height=height;
+
       /* and forward */
     ret = gst_pad_event_default (pad, parent, event);
     break;
@@ -298,16 +317,40 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
 
             while((video_meta_rec =(GstMyMeta *) gst_buffer_iterate_meta_filtered(buf,&state,gstmetainfo_videoroi->api))){
                 if(mapped){
-                    // our rectangle...
                     cv::Rect rect(video_meta_rec->x,video_meta_rec->y, video_meta_rec->w, video_meta_rec->h);
-                    cv::Mat img(filter->height,filter->width, CV_8UC4, info.data); // change your format accordingly
-                    cv::rectangle(img, rect, cv::Scalar(0, 0, 0),1);
-                    cv::Size textrect = cv::getTextSize(enum_to_string(video_meta_rec->type_id), cv::FONT_HERSHEY_COMPLEX_SMALL, 1.0, 1, 0);
+                    cv::Mat img(filter->height,filter->width, filter->cv_type, info.data);
+                    if(filter->true_color){//Convert to OpenCV BGR-default colorspace
+                        switch(filter->format){
+                            case GST_VIDEO_FORMAT_RGB:
+                                cv::cvtColor(img, img, CV_RGB2BGR);
+                                break;
+                            case GST_VIDEO_FORMAT_RGBx:
+                                cv::cvtColor(img, img, CV_RGBA2BGRA);
+                                break;
+                        }
+                    }                    
+                    cv::Size textrect = cv::getTextSize(typeid_to_string(video_meta_rec->type_id), cv::FONT_HERSHEY_COMPLEX_SMALL, 1.0, 1, 0);
                     double scalex = (double)video_meta_rec->w / (double)textrect.width;
                     double scaley = (double)video_meta_rec->h / (double)textrect.height;
                     double scale = std::min(std::min(scalex, scaley),1.0);
-                    cv::putText(img,enum_to_string(video_meta_rec->type_id),cv::Point(video_meta_rec->x,video_meta_rec->y+video_meta_rec->h), // Coordinates
-                            cv::FONT_HERSHEY_COMPLEX_SMALL,scale, cv::Scalar(0,0,0), 1);
+                    cv::Scalar drawcolor=typeid_to_cv_color(video_meta_rec->type_id);
+                    if(filter->format==GST_VIDEO_FORMAT_GRAY8){
+                        drawcolor[0]=(int)((drawcolor[0]+(int)drawcolor[1]+(int)drawcolor[2])/3); //avg of BGR-values for gray-channel
+                    }                    
+                    cv::rectangle(img, rect, drawcolor,1);
+                    cv::putText(img,typeid_to_string(video_meta_rec->type_id),cv::Point(video_meta_rec->x,video_meta_rec->y+video_meta_rec->h), // Coordinates
+                    cv::FONT_HERSHEY_COMPLEX_SMALL,scale, drawcolor, 1);
+                    
+                    if(filter->true_color){
+                        switch(filter->format){                            
+                            case GST_VIDEO_FORMAT_RGB:
+                                cv::cvtColor(img, img, CV_BGR2RGB);
+                                break;
+                            case GST_VIDEO_FORMAT_RGBx:
+                                cv::cvtColor(img, img, CV_BGRA2RGBA);
+                                break;
+                        }
+                    }
                 }
             }
             gst_buffer_unmap (buf, &info);            
@@ -316,11 +359,8 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         else{
             //create data to send ->should not be done in this plugin later
             guint number_data_sets_temp=3;
-            //GstMyMeta *video_meta;
             for(guint n=0;n<number_data_sets_temp;n++){
-                //video_roi_meta=gst_buffer_add_myvideo_meta(buf,"dummy",100*n,10*n+1,10*n+20,40);
-                gst_buffer_add_myvideo_meta_full(buf,string_to_enum("dummy")+n,frame_count,1+n,100*n,10*n+1,10*n+20,40);
-
+                gst_buffer_add_myvideo_meta_full(buf,string_to_typeid("dummy")+n,frame_count,1+n,100*n,10*n+1,10*n+20,40);
             }
         }
   }

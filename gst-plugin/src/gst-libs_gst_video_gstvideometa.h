@@ -1,6 +1,6 @@
 /* GStreamer
  * Copyright (C) <2011> Wim Taymans <wim.taymans@gmail.com>
- * Copyright (C) 2020 Klaus Hammer <<user@hostname.org>>
+ * Copyright (C) 2020 Klaus Hammer <klaushammer52@gmail.com>
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -37,7 +37,7 @@ G_BEGIN_DECLS
 
 enum {dummy,face,box0,box1,box2};
 
-const char * enum_to_string(int type){
+const char * typeid_to_string(int type){
    switch(type) {
       case face: return "face";
       case box0: return "box0";
@@ -46,7 +46,7 @@ const char * enum_to_string(int type){
       default:   return "dummy";
    }
 }
-int string_to_enum(const char* str){
+int string_to_typeid(const char* str){
     if(!strcmp(str,"face")) return face;
     else if (!strcmp (str,"box0")) return box1;
     else if (!strcmp (str,"box1")) return box2;
