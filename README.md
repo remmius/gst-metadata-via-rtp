@@ -1,10 +1,9 @@
 # Gstreamer plugins to send gst-meta-data as RTP-Header
 
-This project contains two GStreamer-plugins (meta2rtp and metahandle) to enable the transport of meta-data over the network using RTP. If the metadata are not added to the RTP-header, they are not included in the RTP-package and are therefore lost on sending the data. 
-Therefore the plugin (meta2rtp) transforms specific meta-data attached to a buffer to the RTP-header and vice versa. The second plugin (metahandle) supports three modes: on the sender side it writes a predefined set of boundings-boxes into the specific metadata (modus=writer) to demonstrate the setup with videotestsrc or convert existing GstVideoRegionOfInterestMeta into the specific meta (modus=converter). On the reciever side it can be used to display the incoming bounding-boxes (modus=reader). 
+This project contains two GStreamer-plugins (meta2rtp and metahandle) to enable the transport of meta-data over the network using RTP. If the metadata are not added to the RTP-header, they are normally not included in the RTP-package and are therefore lost on sending the data. 
+Therefore, the plugin (meta2rtp) transforms specific metadata attached to a buffer to the RTP-header and vice versa. The second plugin (metahandle) supports three modes: on the sender side it writes a predefined set of boundings-boxes into the specific metadata (modus=writer) to demonstrate the setup with videotestsrc or convert existing GstVideoRegionOfInterestMeta into the specific meta (modus=converter). On the reciever side it can be used to display the incoming bounding-boxes (modus=reader). 
 The specific metadata is currently a bounding-box based on gstvideometa with some modifications to be passed through "rtph264depay" and other plugins.
 This meta-data transportation could be helpful e.g. in case the reciever is displaying the annotate video and performing some video-analysis/CV and therefore benefits from recieving unmodified videodata. Main benefit of this approach is that the meta-data and video-data do not need to be resyncronised again on the reciever side.
-So far this has only been tested with the state pipelines below using h264-data, but should not be limited to it. Modifications of the pads might be neccessary.
 
 ## Usage
 Either use the docker file to run the example pipelines, or install the neccessary files (see docker-file for list of pacakges) and use the meson-build process of the GStreamer template repository.
@@ -25,14 +24,12 @@ Now start the sender and reciever pipeline. For demonstration-purposes the metah
     GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 tune=zerolatency ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
 
     With this pipeline you should see the 3 static bounding boxes on the reciever-side video with a name-tag.
-    
 ##### Use camera-input and facedetect-plugin to write metadata
 
     GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v autovideosrc ! decodebin ! videoconvert ! videoscale ! video/x-raw,format=RGB,width=384, height=240 ! facedetect  ! metahandle modus=converter ! videoconvert  ! x264enc key-int-max=15 tune=zerolatency ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
     
-    In forseen usecase, you would set "facedetect display=false" to not draw the bounding box already before sending it of course.
+    In the "real" world, you would set "facedetect display=false" to not draw the bounding box already before sending it of course.
     Note: The metahandle plugin is in best case directly after the facedetect-plugin. Main reason is that some plugins remove the video-metadata from the buffer. The specific metadata pass at least the x264enc and rtph264pay plugins.
-
 ##### Run the reciever pipeline:
 
     GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert ! tee name=t ! queue  ! metahandle modus=reader ! videoconvert  ! autovideosink t. ! videoconvert  ! autovideosink
