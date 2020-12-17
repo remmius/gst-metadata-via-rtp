@@ -1,7 +1,4 @@
 FROM ubuntu:18.04
-WORKDIR /data
-COPY . .
-RUN rm -r builddir
 ENV TZ=Europe/Kiev
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update && apt-get install gcc g++ ninja-build pkg-config meson yasm unzip wget git cmake build-essential -y 
@@ -57,8 +54,10 @@ RUN apt-get install -y \
 #  && rm /opencv_contrib.zip
 #RUN ldconfig -v
 
+#WORKDIR /data
+COPY . .
+
 #build plugins
-WORKDIR /data
 RUN meson builddir && ninja -C builddir/ 
 ENV GST_PLUGIN_PATH ./builddir/gst-plugin/
 #docker build --tag metadata .
@@ -67,6 +66,3 @@ ENV GST_PLUGIN_PATH ./builddir/gst-plugin/
 #RECIEVER:
 #docker run -it -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=unix$DISPLAY --rm --net=host  metadata gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert  ! metahandle modus=reader ! videoconvert  ! autovideosink
 
-COPY entrypoint.sh /entrypoint.sh
-# Code file to execute when the docker container starts up (`entrypoint.sh`)
-ENTRYPOINT ["/entrypoint.sh"]
