@@ -20,16 +20,20 @@
  */
  
 //works
-//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
+//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 tune=zerolatency ! rtph264pay ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
 //GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert  ! metahandle modus=reader ! videoconvert  ! autovideosink
 
 //with gray8:
-//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! video/x-raw,format=GRAY8 ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
+//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! video/x-raw,format=GRAY8 ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 tune=zerolatency ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
 //GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert ! video/x-raw,format=GRAY8  ! metahandle modus=reader ! videoconvert  ! autovideosink
 
 //with RGB
-//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! video/x-raw,format=RGB ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
+//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! video/x-raw,format=RGB ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 tune=zerolatency ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
 //GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v udpsrc port=5555 caps="application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264" !  meta2rtp modus=rtp2meta ! rtph264depay  ! avdec_h264 ! videoconvert ! video/x-raw,format=RGB  ! metahandle modus=reader ! videoconvert  ! autovideosink
+
+//with obtaining bounding-box from facedetect-plugin
+//GST_PLUGIN_PATH=./builddir/gst-plugin/ GST_DEBUG=3 gst-launch-1.0 -v autovideosrc ! decodebin ! videoconvert ! videoscale ! video/x-raw,format=RGB,width=384, height=240 ! facedetect  ! metahandle modus=converter ! videoconvert  ! x264enc key-int-max=15 tune=zerolatency ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=127.0.0.1 port=5555
+
 /**
  * SECTION:element-metahandle
  *
@@ -358,9 +362,9 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
             gst_buffer_unmap (buf, &info);
         }        
         else if(filter->modus == MODUS_CONVERTER){
+            //convert GstVideoRegionOfInterestMeta to GstMyMeta
             const GstMetaInfo *gst_video_region_of_interest_info=gst_video_region_of_interest_meta_get_info(); 
             guint number_data_sets=gst_buffer_get_n_meta(buf,gst_video_region_of_interest_info->api);   
-            g_print("boxes %d \n",number_data_sets);
             gpointer state=NULL;            
             GstVideoRegionOfInterestMeta * video_meta;
             for(guint n=0;n<number_data_sets;n++){
