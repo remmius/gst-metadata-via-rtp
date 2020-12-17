@@ -47,15 +47,3 @@ gstmetahandle = library('gstmetahandle',
   install : true,
   install_dir : plugins_install_dir,
 )
-
-# Plugin facedetected
-face_sources= ['src/gstfacedetect.cpp']
-myfacedetect = library('myfacedetect',
-  face_sources,
-  cpp_args : plugin_c_args,
-  link_args : ['-lgstopencv-1.0'],
-  dependencies : [gst_dep,gst_rtp_dep,gst_video_dep,libmeta_dep,opencv_dep],
-  install : true,
-  install_dir : plugins_install_dir,
-)
-

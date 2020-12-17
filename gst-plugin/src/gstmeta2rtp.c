@@ -300,7 +300,7 @@ gst_meta2rtp_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
       if (filter->modus == MODUS_META2RTP ){
            
             //write data to rtp-header
-            //read out data from meta-data from buffer            
+            //read out data from meta-data from buffer
             const GstMetaInfo *gstmetainfo_videoroi=gst_myvideo_meta_get_info(); 
             guint number_data_sets=gst_buffer_get_n_meta(buf,gstmetainfo_videoroi->api);     
             gpointer state=NULL;

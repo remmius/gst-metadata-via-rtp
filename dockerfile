@@ -4,7 +4,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update && apt-get install gcc g++ ninja-build pkg-config meson yasm unzip wget git cmake build-essential -y 
 
 #Gstreamer1.0
-RUN apt-get install -y libgstreamer1.0-0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools gstreamer1.0-x libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev
+RUN apt-get install -y libgstreamer1.0-0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools gstreamer1.0-x libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-opencv
 #Open-cv source: https://github.com/alyssaq/reconstruction/blob/master/Dockerfile
 RUN apt-get install -y \
   libswscale-dev \
@@ -42,6 +42,7 @@ RUN apt-get install -y \
 #    -DWITH_EIGEN=ON \
 #    -DWITH_VTK=ON \
 #    -DWITH_V4L=ON \
+#    -D WITH_GSTREAMER=ON \
 #    -DBUILD_EXAMPLES=OFF \
 #    -DINSTALL_C_EXAMPLES=OFF \
 #    -DINSTALL_PYTHON_EXAMPLES=OFF \
@@ -51,15 +52,19 @@ RUN apt-get install -y \
 #    .. \
 #  && ninja -j4 install \
 #  && rm /opencv.zip \
-#  && rm /opencv_contrib.zip
-#RUN ldconfig -v
+#  && rm /opencv_contrib.zip \
+#  && ldconfig -v
 
-#WORKDIR /data
 COPY . .
-
 #build plugins
 RUN meson builddir && ninja -C builddir/ 
-ENV GST_PLUGIN_PATH ./builddir/gst-plugin/
+ENV GST_PLUGIN_PATH $GST_PLUGIN_PATH:./builddir/gst-plugin/
+
+#
+#RUN mkdir -p /usr/share/OpenCV/haarcascades/
+#RUN ln -s /usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml /usr/share/OpenCV/haarcascades/haarcascade_frontalface_default.xml
+#RUN ln -s /usr/share/opencv4/haarcascades/haarcascade_eye.xml /usr/share/OpenCV/haarcascades/haarcascade_mcs_eyepair_small.xml
+
 #docker build --tag metadata .
 #SENDER:
 #docker run -it --rm --net=host  metadata gst-launch-1.0 -v videotestsrc ! 'video/x-raw, width=(int)240, height=(int)240, framerate=(fraction)30/1' ! videoconvert ! metahandle modus=writer ! videoconvert  ! x264enc key-int-max=15 ! rtph264pay mtu=1300 ! meta2rtp modus=meta2rtp ! udpsink host=$TARGET_IP port=5555
