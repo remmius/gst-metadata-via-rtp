@@ -77,13 +77,15 @@ enum
 enum
 {
   MODUS_READER,
-  MODUS_WRITER
+  MODUS_WRITER,
+  MODUS_CONVERTER
 };
 
 static const GEnumValue modus_types[] = {
   {MODUS_READER, "Read out metadata from buffer and draw it", "reader"},
-  {MODUS_WRITER, "Write dummy metadata to buffer as metadata", "writer"},
-  {0, NULL, NULL},
+  {MODUS_WRITER, "Write dummy specific metadata to buffer", "writer"},
+  {MODUS_CONVERTER, "Convert exisiting metadata to specific metadata and add to buffer", "converter"},
+  {0, NULL, NULL},  
 };
 
 #define GST_METAHANDLE_MODUS (gst_metahandle_modus_get_type())
@@ -353,13 +355,23 @@ gst_metahandle_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
                     }
                 }
             }
-            gst_buffer_unmap (buf, &info);            
+            gst_buffer_unmap (buf, &info);
+        }        
+        else if(filter->modus == MODUS_CONVERTER){
+            const GstMetaInfo *gst_video_region_of_interest_info=gst_video_region_of_interest_meta_get_info(); 
+            guint number_data_sets=gst_buffer_get_n_meta(buf,gst_video_region_of_interest_info->api);   
+            g_print("boxes %d \n",number_data_sets);
+            gpointer state=NULL;            
+            GstVideoRegionOfInterestMeta * video_meta;
+            for(guint n=0;n<number_data_sets;n++){
+                video_meta =(GstVideoRegionOfInterestMeta *) gst_buffer_iterate_meta_filtered(buf,&state,gst_video_region_of_interest_info->api);
+                gst_buffer_add_myvideo_meta_full(buf,string_to_typeid(g_quark_to_string(video_meta->roi_type))+n,frame_count,string_to_typeid(g_quark_to_string(video_meta->roi_type))+n,video_meta->x,video_meta->y,video_meta->w,video_meta->h);
+            }
         }
-        
-        else{
-            //create data to send ->should not be done in this plugin later
-            guint number_data_sets_temp=3;
-            for(guint n=0;n<number_data_sets_temp;n++){
+        else if(filter->modus == MODUS_WRITER){
+             //create data to send ->should not be done in this plugin later
+            guint number_data_sets=3;
+            for(guint n=0;n<number_data_sets;n++){
                 gst_buffer_add_myvideo_meta_full(buf,string_to_typeid("dummy")+n,frame_count,1+n,100*n,10*n+1,10*n+20,40);
             }
         }
